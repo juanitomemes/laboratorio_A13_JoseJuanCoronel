@@ -8,14 +8,23 @@ public class Turista {
     private String zonaActual; // "ARRIBO", "CENTRAL", "BANOS", "OBSERVACION", etc.
     private boolean activo; // false si ya salió del parque
 
+
+    // CONSTRUCTOR 1: Para el factory y la simulación (recibe un String o int)
     public Turista(String id) {
         this.id = id;
-        // Asignamos un presupuesto aleatorio entre $50 y $200 para la simulación
-        Random random = new Random();
-        this.presupuesto = 50 + (150 * random.nextDouble());
-        this.zonaActual = "ARRIBO"; // Todos empiezan en la entrada
+        this.presupuesto = 150.0; // O el presupuesto base que use tu simulación
         this.activo = true;
+        this.zonaActual = "LUGAR_ARRIBO";
     }
+
+    // CONSTRUCTOR 2: Para las pruebas unitarias (recibe int y double)
+    public Turista(int id, double presupuesto) {
+        this.id = "TURI-" + String.format("%03d", id);
+        this.presupuesto = presupuesto;
+        this.activo = true;
+        this.zonaActual = "LUGAR_ARRIBO";
+    }
+
 
     // Método para realizar un pago (valida si tiene dinero suficiente)
     public boolean pagar(double monto) {
