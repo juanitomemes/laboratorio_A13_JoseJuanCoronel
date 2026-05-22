@@ -4,6 +4,7 @@ import com.parque.dinosaurios.config.ParqueConfig;
 import com.parque.dinosaurios.factory.ParqueFactory;
 import com.parque.dinosaurios.model.Dinosaurio;
 import com.parque.dinosaurios.model.Turista;
+import com.parque.dinosaurios.persistence.ParqueDAO;
 import com.parque.dinosaurios.zona.*;
 
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ public class ControladorSimulacion {
     private Random random = new Random();
     private ParqueConfig config = ParqueConfig.getInstancia();
 
+    private ParqueDAO parqueDAO = new ParqueDAO();
     // Zonas del Parque
     private LugarArribo lugarArribo;
     private RecintoCentral recintoCentral;
@@ -79,31 +81,37 @@ public class ControladorSimulacion {
             System.out.println("            SIMULACIÓN DEL PARQUE - PASO " + paso);
             System.out.println("========================================================");
 
-            // 1. Fase de Arribo: Procesar turistas de la cola exterior hacia adentro
-            int turistasAProcesar = Math.min(10, filaEsperaEntrada.size()); // Entran máximo 10 por paso
+            // --- Persistir un gasto operativo fijo por paso (Mantenimiento diario) ---
+            double costoPaso = 150.00;
+            plantaEnergia.registrarGastoMantenimiento(costoPaso);
+            parqueDAO.registrarGasto("Mantenimiento General Planta", costoPaso, paso);
+
+            // Fase de Arribo
+            int turistasAProcesar = Math.min(10, filaEsperaEntrada.size());
             for (int i = 0; i < turistasAProcesar; i++) {
                 Turista t = filaEsperaEntrada.remove(0);
-                lugarArribo.procesarIngresoParque(t);
+                double ingreso = lugarArribo.procesarIngresoParqueMonto(t);
+                if (ingreso > 0) {
+                    parqueDAO.registrarIngreso("BOLETO_ENTRADA", ingreso, paso);
+                }
             }
 
-            // 2. Fase de Movimiento y Gasto No Determinista
-            simularMovimientoTuristas();
+            // Fase de Movimiento (Ahora le pasamos el paso actual)
+            simularMovimientoTuristas(paso);
 
-            // 3. Fase de Ciclo Vital de Dinosaurios (Aumenta su hambre en cada paso)
+            // Ciclo Vital de Dinosaurios
             for (Dinosaurio d : dinosauriosTotales) {
-                d.incrementarHambre(random.nextInt(15)); // Hambre sube entre 0 y 14 por paso
+                d.incrementarHambre(random.nextInt(15));
             }
 
-            // 4. Sistema de Monitoreo en Tiempo Real
+            // Imprimir reporte en consola
             imprimirReporteMonitoreo();
 
-            // Pausa de cortesía en consola para leer el flujo paso a paso
             try { Thread.sleep(1000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
     }
 
-    private void simularMovimientoTuristas() {
-        // Recolectamos todos los turistas que ya están dentro del parque en cualquier zona
+    private void simularMovimientoTuristas(int paso) {
         List<Zona> zonasConTuristas = List.of(lugarArribo, recintoCentral, banosYSpa, recintoCarnivoros, recintoHerbivoros);
         List<Turista> turistasAdentro = new ArrayList<>();
 
@@ -111,56 +119,81 @@ public class ControladorSimulacion {
             turistasAdentro.addAll(z.getTuristasPresentes());
         }
 
-        // Cada turista decide de manera aleatoria qué hacer en este paso
         for (Turista t : turistasAdentro) {
-            // Buscamos en qué zona está actualmente el turista para sacarlo de ahí si decide moverse
             Zona zonaActual = obtenerZonaPorNombre(t.getZonaActual());
             if (zonaActual == null) continue;
 
             double decision = random.nextDouble();
 
             if (decision < 0.15) {
-                // 15% de probabilidad de abandonar el parque si está cansado o sin dinero
                 zonaActual.salirTurista(t);
                 t.setActivo(false);
                 System.out.println("   [Salida] " + t.getId() + " ha decidido abandonar el parque.");
             } else if (decision < 0.70) {
-                // 55% de probabilidad de moverse a una zona de atracciones/servicios al azar
                 zonaActual.salirTurista(t);
-                moverA_ZonaAleatoria(t);
+                moverA_ZonaAleatoria(t, paso); // Enviamos el paso aquí
             } else {
-                // 30% de probabilidad de quedarse en la misma zona e interactuar de nuevo
-                ejecutarInteraccionZona(zonaActual, t);
+                ejecutarInteraccionZona(zonaActual, t, paso); // Enviamos el paso aquí
             }
         }
     }
 
-    private void moverA_ZonaAleatoria(Turista t) {
-        int destino = random.nextInt(4); // 4 opciones de destino dentro del parque
+    private void moverA_ZonaAleatoria(Turista t, int paso) {
+        int destino = random.nextInt(4);
+        double gastado = 0;
         switch (destino) {
             case 0:
-                if (recintoCentral.ingresarTurista(t)) recintoCentral.interactuar(t);
-                else lugarArribo.ingresarTurista(t); // Si está lleno regresa a Arribo
+                if (recintoCentral.ingresarTurista(t)) {
+                    gastado = recintoCentral.interactuarMonto(t);
+                    if (gastado > 0) parqueDAO.registrarIngreso("SOUVENIR", gastado, paso);
+                } else {
+                    lugarArribo.ingresarTurista(t);
+                }
                 break;
             case 1:
-                if (banosYSpa.ingresarTurista(t)) banosYSpa.ofrecerServicioSpa(t);
-                else lugarArribo.ingresarTurista(t);
+                if (banosYSpa.ingresarTurista(t)) {
+                    gastado = banosYSpa.ofrecerServicioSpaMonto(t);
+                    if (gastado > 0) parqueDAO.registrarIngreso("SPA_PREMIUM", gastado, paso);
+                } else {
+                    lugarArribo.ingresarTurista(t);
+                }
                 break;
             case 2:
-                if (!recintoCarnivoros.visitarRecinto(t)) lugarArribo.ingresarTurista(t);
+                gastado = recintoCarnivoros.visitarRecintoMonto(t);
+                if (gastado > 0) {
+                    parqueDAO.registrarIngreso("ATRACCION_CARNIVOROS", gastado, paso);
+                } else if (t.isActivo() && t.getZonaActual().equals("LUGAR_ARRIBO")) {
+                    // Si no pudo entrar por falta de presupuesto o cupo regresa a Arribo de forma segura
+                    lugarArribo.ingresarTurista(t);
+                }
                 break;
             case 3:
-                if (!recintoHerbivoros.visitarRecinto(t)) lugarArribo.ingresarTurista(t);
+                gastado = recintoHerbivoros.visitarRecintoMonto(t);
+                if (gastado > 0) {
+                    parqueDAO.registrarIngreso("ATRACCION_HERBIVOROS", gastado, paso);
+                } else if (t.isActivo() && t.getZonaActual().equals("LUGAR_ARRIBO")) {
+                    lugarArribo.ingresarTurista(t);
+                }
                 break;
         }
     }
 
-    private void ejecutarInteraccionZona(Zona zona, Turista t) {
-        if (zona instanceof RecintoCentral) ((RecintoCentral) zona).interactuar(t);
-        else if (zona instanceof Banos) ((Banos) zona).ofrecerServicioSpa(t);
-        else if (zona instanceof RecintoObservacion) ((RecintoObservacion) zona).visitarRecinto(t);
-    }
+    private void ejecutarInteraccionZona(Zona zona, Turista t, int paso) {
+        double gastado = 0;
+        if (zona instanceof RecintoCentral) {
+            gastado = ((RecintoCentral) zona).interactuarMonto(t);
+            if (gastado > 0) parqueDAO.registrarIngreso("SOUVENIR", gastado, paso);
+        } else if (zona instanceof Banos) {
+            gastado = ((Banos) zona).ofrecerServicioSpaMonto(t);
+            if (gastado > 0) parqueDAO.registrarIngreso("SPA_PREMIUM", gastado, paso);
+        } else if (zona instanceof RecintoObservacion) {
+            gastado = ((RecintoObservacion) zona).visitarRecintoMonto(t);
+            if (gastado > 0) {
+                parqueDAO.registrarIngreso("ATRACCION_" + zona.getNombre(), gastado, paso);
+            }
+        }
 
+    }
     private Zona obtenerZonaPorNombre(String nombre) {
         if (nombre == null) return null;
         if (nombre.equals("LUGAR_ARRIBO")) return lugarArribo;

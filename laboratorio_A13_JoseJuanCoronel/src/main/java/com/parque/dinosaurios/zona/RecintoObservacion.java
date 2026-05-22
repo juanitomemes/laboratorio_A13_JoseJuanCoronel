@@ -24,7 +24,7 @@ public class RecintoObservacion extends Zona {
     /**
      * Intenta cobrar la entrada al recinto de dinosaurios y registra su experiencia.
      */
-    public boolean visitarRecinto(Turista turista) {
+   /* public boolean visitarRecinto(Turista turista) {
         if (estaLlena()) {
             return false;
         }
@@ -39,6 +39,17 @@ public class RecintoObservacion extends Zona {
             return true;
         }
         return false;
+    }*/
+
+    public double visitarRecintoMonto(Turista turista) {
+        if (estaLlena()) return 0.0;
+        if (turista.pagar(costoEntrada)) {
+            this.ingresosEntradas += costoEntrada;
+            ingresarTurista(turista);
+            System.out.println("   -> [" + getNombre() + "] " + turista.getId() + " pagó entrada ($" + costoEntrada + ").");
+            return costoEntrada;
+        }
+        return 0.0;
     }
 
     private void generarEncuestaSatisfaccion(Turista turista) {

@@ -15,7 +15,7 @@ public class Banos extends Zona {
     /**
      * Simula la entrada al servicio premium del SPA.
      */
-    public void ofrecerServicioSpa(Turista turista) {
+   /* public void ofrecerServicioSpa(Turista turista) {
         // 30% de probabilidad de que un turista en los baños decida relajarse en el SPA
         if (Math.random() < 0.3) {
             if (turista.pagar(costoSpa)) {
@@ -25,6 +25,17 @@ public class Banos extends Zona {
                 System.out.println("   -> [Baños/SPA] " + turista.getId() + " quería SPA, pero su billetera no aguantó.");
             }
         }
+    }*/
+
+    public double ofrecerServicioSpaMonto(Turista turista) {
+        if (Math.random() < 0.3) {
+            if (turista.pagar(costoSpa)) {
+                this.ingresosSpa += costoSpa;
+                System.out.println("   -> [Baños/SPA] " + turista.getId() + " tomó servicio de SPA por $" + costoSpa);
+                return costoSpa;
+            }
+        }
+        return 0.0;
     }
 
     public double getIngresosSpa() { return ingresosSpa; }

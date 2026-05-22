@@ -15,7 +15,7 @@ public class LugarArribo extends Zona {
     /**
      * Intenta procesar la entrada de un turista vendiéndole un boleto.
      */
-    public boolean procesarIngresoParque(Turista turista) {
+   /* public boolean procesarIngresoParque(Turista turista) {
         if (estaLlena()) {
             System.out.println("-> [Arribo] Capacidad máxima alcanzada. " + turista.getId() + " debe esperar.");
             return false;
@@ -31,6 +31,19 @@ public class LugarArribo extends Zona {
             System.out.println("-> [Arribo] " + turista.getId() + " no tiene dinero suficiente para el boleto. Se retira.");
             turista.setActivo(false);
             return false;
+        }
+    }*/
+
+    public double procesarIngresoParqueMonto(Turista turista) {
+        if (estaLlena()) return 0.0;
+        if (turista.pagar(costoBoleto)) {
+            this.ingresosPorBoletos += costoBoleto;
+            ingresarTurista(turista);
+            System.out.println("-> [Arribo] " + turista.getId() + " compró boleto ($" + costoBoleto + ").");
+            return costoBoleto;
+        } else {
+            turista.setActivo(false);
+            return 0.0;
         }
     }
 
