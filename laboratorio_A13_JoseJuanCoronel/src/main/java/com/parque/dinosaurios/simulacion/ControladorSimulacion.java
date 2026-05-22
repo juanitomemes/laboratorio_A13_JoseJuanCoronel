@@ -16,6 +16,9 @@ public class ControladorSimulacion {
     private ParqueConfig config = ParqueConfig.getInstancia();
 
     private ParqueDAO parqueDAO = new ParqueDAO();
+
+    private com.parque.dinosaurios.eventos.GestorEventos gestorEventos = new com.parque.dinosaurios.eventos.GestorEventos();
+
     // Zonas del Parque
     private LugarArribo lugarArribo;
     private RecintoCentral recintoCentral;
@@ -103,6 +106,9 @@ public class ControladorSimulacion {
             for (Dinosaurio d : dinosauriosTotales) {
                 d.incrementarHambre(random.nextInt(15));
             }
+
+            // ---  Disparar Eventos Aleatorios en este paso ---
+            gestorEventos.procesarPosibleEvento(dinosauriosTotales, plantaEnergia, paso);
 
             // Imprimir reporte en consola
             imprimirReporteMonitoreo();
